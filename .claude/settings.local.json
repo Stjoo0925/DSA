@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(wc -l /c/Users/yusco/workdir/DSA/internal/*/*.go /c/Users/yusco/workdir/DSA/cmd/app/main.go)",
+      "Bash(go test:*)",
+      "Bash(go build:*)",
+      "Bash(set -a)",
+      "Bash(source .env)",
+      "Bash(set +a)",
+      "WebFetch(domain:docs.kakaoi.ai)"
+    ]
+  }
+}
