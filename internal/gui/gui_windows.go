@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"dsa/internal/config"
@@ -37,12 +38,15 @@ type appWindow struct {
 
 // Run은 설정 창과 트레이 아이콘을 실행한다.
 func Run() error {
-	cfg, _ := config.Load("")
-	if cfg.ConfigPath == "" {
-		configPath, _, err := config.ResolvePaths()
-		if err != nil {
-			return err
-		}
+	configPath, _, err := config.ResolvePaths()
+	if err != nil {
+		return err
+	}
+
+	cfg, err := config.Load("")
+	if err != nil {
+		cfg = defaultGUIConfig(configPath)
+	} else if cfg.ConfigPath == "" {
 		cfg.ConfigPath = configPath
 	}
 
@@ -57,17 +61,40 @@ func Run() error {
 	}()
 
 	aw.refreshTaskState()
-	aw.setStatus("GUI 준비 완료")
+	aw.setStatus("대기 중")
 	aw.mw.Show()
 	aw.mw.Run()
 	return nil
+}
+
+func defaultGUIConfig(configPath string) config.Config {
+	logDir := "logs"
+	if configPath != "" {
+		logDir = filepath.Join(filepath.Dir(configPath), "logs")
+	}
+	cfg := config.Config{
+		RunMode:               config.RunModeKeepalive,
+		AppTimezone:           "Asia/Seoul",
+		LogDir:                logDir,
+		MaxRetryCount:         1,
+		LogRetentionDays:      7,
+		DBLabel:               "gabiadb",
+		QueryTimeoutSeconds:   5,
+		HTTPTimeoutSeconds:    5,
+		KeepaliveIntervalHour: 3,
+		DailyReportHour:       9,
+		ConfigPath:            configPath,
+	}
+	cfg.QueryTimeout = time.Duration(cfg.QueryTimeoutSeconds) * time.Second
+	cfg.HTTPTimeout = time.Duration(cfg.HTTPTimeoutSeconds) * time.Second
+	return cfg
 }
 
 func (aw *appWindow) create(cfg config.Config) error {
 	err := (MainWindow{
 		AssignTo: &aw.mw,
 		Title:    "DSA 설정",
-		MinSize:  Size{Width: 720, Height: 560},
+		MinSize:  Size{Width: 720, Height: 580},
 		Layout:   VBox{},
 		Children: []Widget{
 			Composite{
@@ -100,7 +127,7 @@ func (aw *appWindow) create(cfg config.Config) error {
 					Label{Text: "로그 보관 일수"},
 					NumberEdit{AssignTo: &aw.retentionDays, Value: float64(cfg.LogRetentionDays), MinValue: 1, MaxValue: 365, Decimals: 0},
 
-					Label{Text: "keepalive 간격(시간)"},
+					Label{Text: "연결유지 주기(시간)"},
 					NumberEdit{AssignTo: &aw.keepaliveHours, Value: float64(cfg.KeepaliveIntervalHour), MinValue: 1, MaxValue: 24, Decimals: 0},
 
 					Label{Text: "일일 보고 시각(0-23)"},
@@ -120,8 +147,8 @@ func (aw *appWindow) create(cfg config.Config) error {
 			Composite{
 				Layout: HBox{},
 				Children: []Widget{
-					PushButton{Text: "지금 keepalive 실행", OnClicked: func() { aw.runNow(config.RunModeKeepalive) }},
-					PushButton{Text: "지금 일일 보고 실행", OnClicked: func() { aw.runNow(config.RunModeDailyReport) }},
+					PushButton{Text: "연결유지 실행", OnClicked: func() { aw.runNow(config.RunModeKeepalive) }},
+					PushButton{Text: "일일 보고 실행", OnClicked: func() { aw.runNow(config.RunModeDailyReport) }},
 					PushButton{Text: "트레이로 숨기기", OnClicked: func() { aw.hideToTray() }},
 					PushButton{Text: "종료", OnClicked: func() { walk.App().Exit(0) }},
 				},
@@ -146,7 +173,9 @@ func (aw *appWindow) initTray() error {
 	if err != nil {
 		return err
 	}
-	aw.mw.SetIcon(icon)
+	if err := aw.mw.SetIcon(icon); err != nil {
+		return err
+	}
 
 	ni, err := walk.NewNotifyIcon(aw.mw)
 	if err != nil {
@@ -170,12 +199,12 @@ func (aw *appWindow) initTray() error {
 	_ = aw.ni.ContextMenu().Actions().Add(openAction)
 
 	keepaliveAction := walk.NewAction()
-	keepaliveAction.SetText("지금 keepalive 실행")
+	keepaliveAction.SetText("연결유지 실행")
 	keepaliveAction.Triggered().Attach(func() { aw.runNow(config.RunModeKeepalive) })
 	_ = aw.ni.ContextMenu().Actions().Add(keepaliveAction)
 
 	reportAction := walk.NewAction()
-	reportAction.SetText("지금 일일 보고 실행")
+	reportAction.SetText("일일 보고 실행")
 	reportAction.Triggered().Attach(func() { aw.runNow(config.RunModeDailyReport) })
 	_ = aw.ni.ContextMenu().Actions().Add(reportAction)
 
@@ -234,7 +263,6 @@ func (aw *appWindow) currentConfig() (config.Config, error) {
 	if cfg.KakaoWorkWebhookURL == "" {
 		return config.Config{}, fmt.Errorf("카카오워크 웹훅 URL 값을 입력해 주세요")
 	}
-
 	return cfg, nil
 }
 
@@ -244,7 +272,6 @@ func (aw *appWindow) saveConfig() {
 		aw.showError(err)
 		return
 	}
-
 	if err := config.Save(cfg.ConfigPath, cfg); err != nil {
 		aw.showError(err)
 		return
@@ -257,7 +284,6 @@ func (aw *appWindow) saveConfig() {
 			return
 		}
 	}
-
 	aw.setStatus("설정 저장 완료")
 }
 
@@ -271,7 +297,6 @@ func (aw *appWindow) registerTasks() {
 		aw.showError(err)
 		return
 	}
-
 	exePath, err := os.Executable()
 	if err != nil {
 		aw.showError(err)
@@ -281,7 +306,6 @@ func (aw *appWindow) registerTasks() {
 		aw.showError(err)
 		return
 	}
-
 	aw.refreshTaskState()
 	aw.setStatus("작업 스케줄러 등록 완료")
 }
@@ -301,7 +325,7 @@ func (aw *appWindow) disableTasks() {
 		return
 	}
 	aw.refreshTaskState()
-	aw.setStatus("작업 스케줄러 중지 완료")
+	aw.setStatus("작업 중지 완료")
 }
 
 func (aw *appWindow) enableTasks() {
@@ -310,7 +334,7 @@ func (aw *appWindow) enableTasks() {
 		return
 	}
 	aw.refreshTaskState()
-	aw.setStatus("작업 스케줄러 재개 완료")
+	aw.setStatus("작업 재개 완료")
 }
 
 func (aw *appWindow) runNow(runMode string) {
@@ -332,11 +356,11 @@ func (aw *appWindow) runNow(runMode string) {
 				aw.showError(err)
 				return
 			}
-			aw.setStatus("즉시 실행 완료: " + runMode)
+			aw.setStatus("즉시 실행 완료")
 		})
 	}()
 
-	aw.setStatus("실행 중: " + runMode)
+	aw.setStatus("실행 중...")
 }
 
 func (aw *appWindow) hideToTray() {
@@ -350,9 +374,8 @@ func (aw *appWindow) refreshTaskState() {
 		aw.setStatus("작업 상태 조회 실패")
 		return
 	}
-
 	aw.setStatus(fmt.Sprintf(
-		"keepalive: 존재=%t 활성=%t / daily-report: 존재=%t 활성=%t",
+		"연결유지: 등록=%t 활성=%t / 일일보고: 등록=%t 활성=%t",
 		state.KeepaliveExists,
 		state.KeepaliveEnabled,
 		state.DailyReportExists,

@@ -7,7 +7,15 @@
       "Bash(set -a)",
       "Bash(source .env)",
       "Bash(set +a)",
-      "WebFetch(domain:docs.kakaoi.ai)"
+      "WebFetch(domain:docs.kakaoi.ai)",
+      "Bash(go env:*)",
+      "Read(//c/Users/yusco/go/pkg/mod/github.com/lxn/**)",
+      "Bash(find /c/Users/yusco/go/pkg/mod/github.com/lxn/walk@* -name \"*.go\")",
+      "Bash(xargs grep:*)",
+      "Bash(grep -n \"func.*Create.*error\" /c/Users/yusco/go/pkg/mod/github.com/lxn/walk@v0.0.0-20210112085537-c389da54e794/declarative/*.go)",
+      "Bash(grep -A 3 \"func.*Label.*Create\" /c/Users/yusco/go/pkg/mod/github.com/lxn/walk@v0.0.0-20210112085537-c389da54e794/declarative/*.go)",
+      "Bash(grep -n \"func.*SetIcon\\\\|func.*SetToolTip\" /c/Users/yusco/workdir/DSA/vendor/github.com/lxn/walk/*.go)",
+      "Bash(go vet:*)"
     ]
   }
 }
