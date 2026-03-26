@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -22,8 +23,9 @@ func RegisterWindowsTasks(cfg config.Config, exePath string) error {
 
 	workDir := filepath.Dir(exePath)
 
-	keepaliveCmd := fmt.Sprintf("cmd /c \"cd /d \"%s\" && \"%s\" run keepalive\"", workDir, exePath)
-	reportCmd := fmt.Sprintf("cmd /c \"cd /d \"%s\" && \"%s\" run daily-report\"", workDir, exePath)
+	// cmd /c 내부의 경로 공백 처리: 중첩 따옴표를 \"로 이스케이프한다.
+	keepaliveCmd := fmt.Sprintf(`cmd /c "cd /d \"%s\" && \"%s\" run keepalive"`, workDir, exePath)
+	reportCmd := fmt.Sprintf(`cmd /c "cd /d \"%s\" && \"%s\" run daily-report"`, workDir, exePath)
 
 	if err := runSCHTASKS(
 		"/Create",
@@ -61,8 +63,16 @@ func UnregisterWindowsTasks() error {
 		return fmt.Errorf("작업 스케줄러 자동 삭제는 Windows에서만 지원합니다")
 	}
 
-	_ = runSCHTASKS("/Delete", "/F", "/TN", keepaliveTaskName)
-	_ = runSCHTASKS("/Delete", "/F", "/TN", reportTaskName)
+	var errs []error
+	if err := runSCHTASKS("/Delete", "/F", "/TN", keepaliveTaskName); err != nil {
+		errs = append(errs, fmt.Errorf("keepalive 작업 삭제 실패: %w", err))
+	}
+	if err := runSCHTASKS("/Delete", "/F", "/TN", reportTaskName); err != nil {
+		errs = append(errs, fmt.Errorf("daily-report 작업 삭제 실패: %w", err))
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
 	return nil
 }
 

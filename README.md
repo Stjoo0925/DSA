@@ -28,6 +28,10 @@ Database Session Activator
 
 실제 운영에 필요한 환경변수 예시는 [.env.example](C:\Users\yusco\workdir\DSA\.env.example)에 정리되어 있습니다.
 
+실행 파일과 같은 위치에 `.env` 파일이 있으면, 앱이 그 값을 읽어서 설정 파일 생성과 실행에 반영합니다.
+즉 기존 `.env`를 이미 쓰고 있다면 다시 손으로 옮기지 않아도 됩니다.
+또한 `setup` 실행 후에는 `.env`가 자동으로 `dsa.config.json`으로 반영되고, 원본 `.env`는 백업 파일로 이름이 바뀝니다.
+
 필수값:
 
 - `DATABASE_URL`
@@ -67,6 +71,22 @@ $env:RUN_MODE="keepalive"
 $env:RUN_MODE="daily-report"
 .\dist\dsa.exe
 ```
+
+### 3. 첫 설정 실행
+
+가장 권장하는 방식은 아래 명령으로 초기 설정을 한 번 수행하는 것입니다.
+
+```powershell
+.\dist\dsa.exe setup
+```
+
+이 명령은 아래 작업을 처리합니다.
+
+- 기존 `.env` 값 읽기
+- 설정 마법사 실행
+- `dsa.config.json` 저장
+- 기존 `.env` 백업 처리
+- 원하면 작업 스케줄러까지 등록
 
 ## 운영 순서
 
@@ -172,26 +192,51 @@ go build -o dist\dsa.exe ./cmd/app
 스크립트 파일:
 
 - [DSA.iss](C:\Users\yusco\workdir\DSA\installer\DSA.iss)
+- [build-installer.ps1](C:\Users\yusco\workdir\DSA\scripts\build-installer.ps1)
+- [build-installer.bat](C:\Users\yusco\workdir\DSA\build-installer.bat)
 
-### 설치 파일 생성 순서
+### 가장 쉬운 방법
 
-1. 먼저 실행 파일을 빌드합니다.
+아래 파일만 실행하면 됩니다.
 
-```powershell
-go build -o dist\dsa.exe ./cmd/app
+```bat
+build-installer.bat
 ```
 
-2. Inno Setup에서 `installer\DSA.iss`를 엽니다.
+이 명령은 아래 작업을 한 번에 처리합니다.
 
-3. Compile을 실행합니다.
+- `dsa.exe` 빌드
+- Inno Setup 컴파일 실행
+- `DSA-Setup.exe` 생성
 
-4. 설치 파일이 생성됩니다.
+### PowerShell로 직접 실행하는 방법
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
+```
+
+### 내부 동작 순서
+
+1. `go build -o dist\dsa.exe ./cmd/app`
+2. `installer\DSA.iss`를 Inno Setup 컴파일러로 빌드
+3. 설치 파일 생성
 
 예상 결과:
 
 ```text
 installer\output\DSA-Setup.exe
 ```
+
+### 필요 조건
+
+- Go 설치
+- Inno Setup 6 설치
+
+스크립트는 아래 위치에서 Inno Setup을 자동 탐색합니다.
+
+- `PATH`에 등록된 `iscc`
+- `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`
+- `C:\Program Files\Inno Setup 6\ISCC.exe`
 
 ### 설치 파일에 포함되는 항목
 
