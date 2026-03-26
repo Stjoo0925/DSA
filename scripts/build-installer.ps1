@@ -17,7 +17,7 @@ function Find-ISCC {
         }
     }
 
-    throw "Inno Setup compiler(ISCC.exe)를 찾을 수 없습니다. Inno Setup 6를 설치하거나 iscc 명령이 PATH에 있어야 합니다."
+    throw "Inno Setup compiler(ISCC.exe) not found. Install Inno Setup 6 or add iscc to PATH."
 }
 
 $distDir = Join-Path $RepoRoot "dist"
@@ -27,10 +27,10 @@ if (-not (Test-Path $distDir)) {
     New-Item -ItemType Directory -Path $distDir | Out-Null
 }
 
-Write-Host "[1/2] dsa.exe 빌드 중..."
+Write-Host "[1/2] Building dsa.exe ..."
 Push-Location $RepoRoot
 try {
-    go build -o dist\dsa.exe ./cmd/app
+    go build -ldflags "-H windowsgui" -o dist\dsa.exe ./cmd/app
 }
 finally {
     Pop-Location
@@ -38,9 +38,9 @@ finally {
 
 $iscc = Find-ISCC
 
-Write-Host "[2/2] 설치 파일 빌드 중..."
+Write-Host "[2/2] Building installer ..."
 & $iscc $installerScript
 
 Write-Host ""
-Write-Host "완료:"
+Write-Host "Done:"
 Write-Host (Join-Path $RepoRoot "installer\output\DSA-Setup.exe")
