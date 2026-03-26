@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"dsa/internal/config"
 )
@@ -14,6 +15,13 @@ const (
 	keepaliveTaskName = "DSA Keepalive"
 	reportTaskName    = "DSA Daily Report"
 )
+
+type TaskState struct {
+	KeepaliveExists    bool
+	DailyReportExists  bool
+	KeepaliveEnabled   bool
+	DailyReportEnabled bool
+}
 
 // RegisterWindowsTasks는 현재 실행 파일을 기준으로 윈도우 작업 스케줄러를 등록한다.
 func RegisterWindowsTasks(cfg config.Config, exePath string) error {
@@ -74,6 +82,84 @@ func UnregisterWindowsTasks() error {
 		return errors.Join(errs...)
 	}
 	return nil
+}
+
+func DisableWindowsTasks() error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("작업 스케줄러 비활성화는 Windows에서만 지원합니다")
+	}
+
+	var errs []error
+	if err := runSCHTASKS("/Change", "/TN", keepaliveTaskName, "/Disable"); err != nil {
+		errs = append(errs, fmt.Errorf("keepalive 작업 비활성화 실패: %w", err))
+	}
+	if err := runSCHTASKS("/Change", "/TN", reportTaskName, "/Disable"); err != nil {
+		errs = append(errs, fmt.Errorf("daily-report 작업 비활성화 실패: %w", err))
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+func EnableWindowsTasks() error {
+	if runtime.GOOS != "windows" {
+		return fmt.Errorf("작업 스케줄러 활성화는 Windows에서만 지원합니다")
+	}
+
+	var errs []error
+	if err := runSCHTASKS("/Change", "/TN", keepaliveTaskName, "/Enable"); err != nil {
+		errs = append(errs, fmt.Errorf("keepalive 작업 활성화 실패: %w", err))
+	}
+	if err := runSCHTASKS("/Change", "/TN", reportTaskName, "/Enable"); err != nil {
+		errs = append(errs, fmt.Errorf("daily-report 작업 활성화 실패: %w", err))
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
+func QueryWindowsTaskState() (TaskState, error) {
+	if runtime.GOOS != "windows" {
+		return TaskState{}, fmt.Errorf("작업 스케줄러 상태 조회는 Windows에서만 지원합니다")
+	}
+
+	keepExists, keepEnabled, err := querySingleTaskState(keepaliveTaskName)
+	if err != nil {
+		return TaskState{}, err
+	}
+	reportExists, reportEnabled, err := querySingleTaskState(reportTaskName)
+	if err != nil {
+		return TaskState{}, err
+	}
+
+	return TaskState{
+		KeepaliveExists:    keepExists,
+		DailyReportExists:  reportExists,
+		KeepaliveEnabled:   keepEnabled,
+		DailyReportEnabled: reportEnabled,
+	}, nil
+}
+
+func querySingleTaskState(taskName string) (exists bool, enabled bool, err error) {
+	cmd := exec.Command("schtasks", "/Query", "/TN", taskName, "/FO", "LIST", "/V")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		text := string(output)
+		if strings.Contains(text, "ERROR: The system cannot find the file specified.") ||
+			strings.Contains(text, "오류: 지정된 파일을 찾을 수 없습니다.") {
+			return false, false, nil
+		}
+		return false, false, fmt.Errorf("작업 상태 조회 실패(%s): %w: %s", taskName, err, text)
+	}
+
+	text := string(output)
+	upper := strings.ToUpper(text)
+	enabled = strings.Contains(upper, "SCHEDULED TASK STATE: ENABLED") ||
+		strings.Contains(text, "예약된 작업 상태: 사용")
+
+	return true, enabled, nil
 }
 
 func runSCHTASKS(args ...string) error {

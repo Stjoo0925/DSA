@@ -3,170 +3,196 @@ Database Session Activator
 
 ## 개요
 
-이 프로그램은 가비아 PostgreSQL이 유휴 상태에 빠지지 않도록 주기적으로 쿼리를 실행하는 배치 프로그램입니다.
+DSA는 가비아 PostgreSQL이 유휴 상태에 빠지지 않도록 주기적으로 쿼리를 실행하고,
+카카오워크로 장애 알림과 일일 보고를 보내는 Windows용 운영 앱입니다.
 
-주요 기능은 아래 2가지입니다.
+현재 형태는 다음을 목표로 합니다.
 
-- `keepalive`
-  - DB에 접속해서 유휴 방지용 쿼리 3개를 순서대로 실행합니다.
-  - 3개 쿼리가 모두 실패한 경우에만 카카오워크로 장애 알림을 보냅니다.
-- `daily-report`
-  - 전일 로그를 읽어서 성공/실패 현황을 집계합니다.
-  - 카카오워크로 일일 보고를 보냅니다.
+- 설치 파일로 배포
+- GUI로 설정 수정
+- 트레이 아이콘으로 상주
+- 작업 스케줄러 자동 등록
+- `.env` 값을 설정 파일로 마이그레이션
 
-## 실행 파일 방식
+## 현재 가능한 기능
 
-이 프로젝트는 가상환경 없이 단일 실행 파일로 배포할 수 있습니다.
+- 기본 실행 시 GUI 창 열기
+- 트레이 아이콘 상주
+- 창 닫기 시 종료 대신 트레이로 숨기기
+- GUI에서 설정 저장
+- GUI에서 작업 등록, 중지, 재개, 삭제
+- GUI에서 `keepalive`, `daily-report` 즉시 실행
+- 설치 시 자동 시작 옵션 선택
+- `.env`가 있으면 `dsa.config.json` 생성 시 기본값으로 반영
+- `setup` 실행 후 기존 `.env` 백업 처리
 
-현재 빌드 결과:
+## 주요 파일
 
-- [dsa.exe](C:\Users\yusco\workdir\DSA\dist\dsa.exe)
+- 실행 파일: [dsa.exe](C:\Users\yusco\workdir\DSA\dist\dsa.exe)
+- 설치 파일: [DSA-Setup.exe](C:\Users\yusco\workdir\DSA\installer\output\DSA-Setup.exe)
+- 설치 스크립트: [DSA.iss](C:\Users\yusco\workdir\DSA\installer\DSA.iss)
+- 원스탭 빌드: [build-installer.bat](C:\Users\yusco\workdir\DSA\build-installer.bat)
+- PowerShell 빌드 스크립트: [build-installer.ps1](C:\Users\yusco\workdir\DSA\scripts\build-installer.ps1)
+- 환경변수 예시: [.env.example](C:\Users\yusco\workdir\DSA\.env.example)
 
-즉, 운영 서버에서는 Go 개발환경 없이 `dsa.exe`만 실행하면 됩니다.
+## 설정 방식
 
-## 환경변수
+설정 우선순위는 아래와 같습니다.
 
-실제 운영에 필요한 환경변수 예시는 [.env.example](C:\Users\yusco\workdir\DSA\.env.example)에 정리되어 있습니다.
+1. 명령행 인자
+2. 실제 OS 환경변수
+3. 실행 파일 옆 `.env`
+4. 실행 파일 옆 `dsa.config.json`
+5. 코드 기본값
 
-실행 파일과 같은 위치에 `.env` 파일이 있으면, 앱이 그 값을 읽어서 설정 파일 생성과 실행에 반영합니다.
-즉 기존 `.env`를 이미 쓰고 있다면 다시 손으로 옮기지 않아도 됩니다.
-또한 `setup` 실행 후에는 `.env`가 자동으로 `dsa.config.json`으로 반영되고, 원본 `.env`는 백업 파일로 이름이 바뀝니다.
+즉 기존에 `.env`를 쓰고 있으면 설치 후에도 그 값을 그대로 가져올 수 있습니다.
 
-필수값:
+## 가장 쉬운 설치 파일 빌드 방법
 
-- `DATABASE_URL`
-- `KAKAOWORK_WEBHOOK_URL`
+저장소 루트에서 아래 파일만 실행하면 됩니다.
 
-주요 선택값:
-
-- `RUN_MODE`
-- `APP_TIMEZONE`
-- `LOG_DIR`
-- `QUERY_TIMEOUT_SECONDS`
-- `HTTP_TIMEOUT_SECONDS`
-- `MAX_RETRY_COUNT`
-- `LOG_RETENTION_DAYS`
-- `DB_LABEL`
-
-## 실행 방법
-
-### 1. keepalive 실행
-
-기본 실행 모드는 `keepalive` 입니다.
-
-```powershell
-.\dist\dsa.exe
+```bat
+build-installer.bat
 ```
 
-또는 환경변수를 직접 지정한 뒤 실행할 수 있습니다.
+이 명령은 아래를 한 번에 수행합니다.
 
-```powershell
-$env:RUN_MODE="keepalive"
-.\dist\dsa.exe
+1. `dsa.exe` 빌드
+2. Inno Setup으로 설치 파일 빌드
+3. `installer\output\DSA-Setup.exe` 생성
+
+## 설치 파일 생성 결과
+
+설치 파일 경로:
+
+```text
+C:\Users\yusco\workdir\DSA\installer\output\DSA-Setup.exe
 ```
 
-### 2. daily-report 실행
+## 설치 방법
 
-```powershell
-$env:RUN_MODE="daily-report"
-.\dist\dsa.exe
+1. `DSA-Setup.exe` 실행
+2. 설치 경로 선택
+3. 추가 작업 선택
+   - 바탕 화면 아이콘 만들기
+   - Windows 시작 시 DSA 자동 실행
+4. 설치 완료 후 GUI 창 실행
+
+## 자동 시작 방식
+
+자동 시작은 시작프로그램 폴더가 아니라 아래 레지스트리 경로를 사용합니다.
+
+```text
+HKCU\Software\Microsoft\Windows\CurrentVersion\Run
 ```
 
-### 3. 첫 설정 실행
+등록 값:
 
-가장 권장하는 방식은 아래 명령으로 초기 설정을 한 번 수행하는 것입니다.
+- 이름: `DSA`
+- 데이터: `"설치경로\dsa.exe" gui`
 
-```powershell
-.\dist\dsa.exe setup
-```
+즉 현재 로그인한 사용자 기준으로 자동 시작됩니다.
 
-이 명령은 아래 작업을 처리합니다.
+## 첫 실행 권장 순서
 
-- 기존 `.env` 값 읽기
-- 설정 마법사 실행
+설치 후에는 GUI에서 바로 설정하는 방식이 가장 쉽습니다.
+
+1. DSA 실행
+2. DB 접속 정보 입력
+3. 카카오워크 웹훅 입력
+4. 로그 폴더, 타임아웃, 재시도 횟수 확인
+5. `Save Settings` 클릭
+6. `Register Tasks` 클릭
+
+## `.env` 사용 중인 경우
+
+실행 파일과 같은 위치에 `.env` 파일이 있으면 앱이 그 값을 먼저 읽습니다.
+
+그리고 `setup` 또는 GUI 저장 이후에는:
+
 - `dsa.config.json` 저장
-- 기존 `.env` 백업 처리
-- 원하면 작업 스케줄러까지 등록
-
-## 운영 순서
-
-### 1. 서버 준비
-
-- 외부에서 가비아 DB에 접속 가능한 서버를 준비합니다.
-- 카카오워크 Incoming Webhook URL을 발급합니다.
-- 실행 파일을 둘 폴더를 준비합니다.
+- 기존 `.env`는 백업 파일로 이름 변경
 
 예시:
 
 ```text
-C:\DSA
+.env.backup-20260326-151500
 ```
 
-### 2. 파일 복사
+## 실행 명령
 
-아래 파일을 서버에 복사합니다.
-
-- `dsa.exe`
-- `.env.example`
-
-운영에서는 `.env.example`를 참고해서 실제 환경변수를 등록하면 됩니다.
-
-### 3. 환경변수 설정
-
-예시:
+기본 실행:
 
 ```powershell
-$env:DATABASE_URL="postgresql://username:password@host:5432/dbname?sslmode=require"
-$env:KAKAOWORK_WEBHOOK_URL="https://example.com/webhook"
-$env:APP_TIMEZONE="Asia/Seoul"
-$env:LOG_DIR="C:\DSA\logs"
-$env:QUERY_TIMEOUT_SECONDS="5"
-$env:HTTP_TIMEOUT_SECONDS="5"
-$env:MAX_RETRY_COUNT="1"
-$env:LOG_RETENTION_DAYS="7"
-$env:DB_LABEL="gabiadb-prod"
+.\dist\dsa.exe
 ```
 
-### 4. 수동 실행 확인
+GUI 명시 실행:
 
-먼저 keepalive를 1회 실행해서 아래를 확인합니다.
+```powershell
+.\dist\dsa.exe gui
+```
 
-- DB 접속이 되는지
-- 로그 파일이 생성되는지
-- 실패 상황에서 카카오워크 알림이 정상 전송되는지
+keepalive 즉시 실행:
 
-그 다음 daily-report도 1회 실행해서 보고 메시지 형식을 확인합니다.
+```powershell
+.\dist\dsa.exe run keepalive
+```
 
-### 5. 스케줄 등록
+일일 보고 즉시 실행:
 
-운영에서는 아래 2개 작업만 등록하면 됩니다.
+```powershell
+.\dist\dsa.exe run daily-report
+```
 
-- `keepalive`: 3시간마다 실행
-- `daily-report`: 한국시간 오전 9시에 실행
+설정 파일 예시 생성:
 
-중요한 점은 프로그램 내부가 아니라 서버 스케줄러가 실제 실행 시각을 결정한다는 것입니다.
-즉 오전 9시 보고는 `RUN_MODE=daily-report` 작업을 오전 9시에 실행하도록 등록해야 합니다.
+```powershell
+.\dist\dsa.exe init-config
+```
 
-## 윈도우 작업 스케줄러 예시
+작업 스케줄러 등록:
 
-### keepalive 작업
+```powershell
+.\dist\dsa.exe register-tasks
+```
 
-- 프로그램: `C:\DSA\dsa.exe`
-- 시작 위치: `C:\DSA`
-- 실행 주기: 3시간마다
-- 환경변수: `RUN_MODE=keepalive`
+작업 스케줄러 삭제:
 
-### daily-report 작업
+```powershell
+.\dist\dsa.exe unregister-tasks
+```
 
-- 프로그램: `C:\DSA\dsa.exe`
-- 시작 위치: `C:\DSA`
-- 실행 시각: 매일 오전 9시
-- 환경변수: `RUN_MODE=daily-report`
+## GUI에서 할 수 있는 작업
+
+- DB 접속 정보 수정
+- 카카오워크 웹훅 수정
+- 로그 경로 수정
+- 타임아웃 수정
+- 재시도 횟수 수정
+- keepalive 간격 수정
+- 일일 보고 시각 수정
+- 설정 저장
+- 작업 등록
+- 작업 중지
+- 작업 재개
+- 작업 삭제
+- keepalive 즉시 실행
+- 일일 보고 즉시 실행
+
+## 트레이 메뉴에서 할 수 있는 작업
+
+- 설정 창 열기
+- keepalive 즉시 실행
+- 일일 보고 즉시 실행
+- 작업 중지
+- 작업 재개
+- 종료
 
 ## 로그
 
-- 실행 로그는 `LOG_DIR` 아래에 날짜별 `.jsonl` 파일로 저장됩니다.
-- 로그는 최대 7일 보관됩니다.
+- 로그는 날짜별 `.jsonl` 파일로 저장됩니다.
+- 기본 보관 기간은 7일입니다.
 - 일일 보고는 전일 로그 파일을 읽어서 집계합니다.
 
 예시:
@@ -175,84 +201,11 @@ $env:DB_LABEL="gabiadb-prod"
 C:\DSA\logs\2026-03-26.jsonl
 ```
 
-## 단일 실행 파일 빌드
-
-```powershell
-go build -o dist\dsa.exe ./cmd/app
-```
-
-빌드가 끝나면 아래 파일이 생성됩니다.
-
-- [dsa.exe](C:\Users\yusco\workdir\DSA\dist\dsa.exe)
-
-## 설치 파일 만들기
-
-설치형 패키지가 필요하면 Inno Setup으로 `setup.exe`를 만들 수 있습니다.
-
-스크립트 파일:
-
-- [DSA.iss](C:\Users\yusco\workdir\DSA\installer\DSA.iss)
-- [build-installer.ps1](C:\Users\yusco\workdir\DSA\scripts\build-installer.ps1)
-- [build-installer.bat](C:\Users\yusco\workdir\DSA\build-installer.bat)
-
-### 가장 쉬운 방법
-
-아래 파일만 실행하면 됩니다.
-
-```bat
-build-installer.bat
-```
-
-이 명령은 아래 작업을 한 번에 처리합니다.
-
-- `dsa.exe` 빌드
-- Inno Setup 컴파일 실행
-- `DSA-Setup.exe` 생성
-
-### PowerShell로 직접 실행하는 방법
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\build-installer.ps1
-```
-
-### 내부 동작 순서
-
-1. `go build -o dist\dsa.exe ./cmd/app`
-2. `installer\DSA.iss`를 Inno Setup 컴파일러로 빌드
-3. 설치 파일 생성
-
-예상 결과:
-
-```text
-installer\output\DSA-Setup.exe
-```
-
-### 필요 조건
-
-- Go 설치
-- Inno Setup 6 설치
-
-스크립트는 아래 위치에서 Inno Setup을 자동 탐색합니다.
-
-- `PATH`에 등록된 `iscc`
-- `C:\Program Files (x86)\Inno Setup 6\ISCC.exe`
-- `C:\Program Files\Inno Setup 6\ISCC.exe`
-
-### 설치 파일에 포함되는 항목
-
-- `dsa.exe`
-- `.env.example`
-- `logs` 폴더 생성
-
-설치 후 기본 경로:
-
-```text
-C:\Program Files\DSA
-```
-
-## 확인해야 할 값
-
-실제 운영 전에 아래 2가지는 반드시 확정해야 합니다.
+## 실제 운영 전에 확인할 것
 
 - 가비아 DB 실제 접속 문자열
 - 카카오워크 Incoming Webhook 실제 URL
+- 설치 후 GUI에서 저장이 정상 동작하는지
+- 작업 등록 후 스케줄러에 항목이 생기는지
+- keepalive 즉시 실행 시 로그가 남는지
+- daily-report 즉시 실행 시 카카오워크 메시지가 오는지

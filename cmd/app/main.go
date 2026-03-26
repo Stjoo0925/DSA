@@ -7,6 +7,7 @@ import (
 	"os"
 
 	"dsa/internal/config"
+	"dsa/internal/gui"
 	"dsa/internal/job"
 	"dsa/internal/logx"
 	"dsa/internal/scheduler"
@@ -16,6 +17,7 @@ import (
 // main은 배치 프로그램의 진입점이다.
 //
 // 지원 명령:
+// - gui: 설정 창과 트레이 앱 실행
 // - setup: 설정 파일 생성/수정 + 작업 스케줄러 등록
 // - init-config: 예시 설정 파일만 생성
 // - register-tasks: 현재 설정 기준으로 작업 스케줄러 등록
@@ -39,6 +41,14 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Println("설정 파일 생성:", configPath)
+		return
+	}
+
+	if command == "gui" {
+		if err := gui.Run(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
 		return
 	}
 
@@ -127,7 +137,7 @@ func main() {
 
 func parseArgs(args []string) (command string, runMode string, err error) {
 	if len(args) == 0 {
-		return "run", "", nil
+		return "gui", "", nil
 	}
 
 	switch args[0] {
@@ -141,6 +151,8 @@ func parseArgs(args []string) (command string, runMode string, err error) {
 		return "run", args[1], nil
 	case "init-config":
 		return "init-config", "", nil
+	case "gui":
+		return "gui", "", nil
 	case "setup":
 		return "setup", "", nil
 	case "register-tasks":
