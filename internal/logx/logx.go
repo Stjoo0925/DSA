@@ -44,7 +44,11 @@ func (l *Logger) Write(record Record) error {
 		return fmt.Errorf("create log dir: %w", err)
 	}
 
-	filePath := filepath.Join(l.dir, time.Now().Format("2006-01-02")+".jsonl")
+	ts, err := time.Parse(time.RFC3339, record.Timestamp)
+	if err != nil {
+		ts = time.Now()
+	}
+	filePath := filepath.Join(l.dir, ts.Format("2006-01-02")+".jsonl")
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open log file: %w", err)

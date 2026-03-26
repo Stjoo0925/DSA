@@ -32,7 +32,7 @@ type Stats struct {
 // - LastFailureAt은 마지막 실패 쿼리 시각을 저장한다.
 // - ErrorSummary는 동일한 에러 메시지를 묶어서 개수를 센다.
 func Build(logDir string, location *time.Location, now time.Time) (Stats, error) {
-	dayTime := now.In(location).Add(-24 * time.Hour)
+	dayTime := now.In(location).AddDate(0, 0, -1)
 	day := dayTime.Format("2006-01-02")
 	filePath := filepath.Join(logDir, day+".jsonl")
 

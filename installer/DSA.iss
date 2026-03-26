@@ -35,4 +35,4 @@ Name: "{autoprograms}\DSA"; Filename: "{app}\dsa.exe"
 Name: "{autodesktop}\DSA"; Filename: "{app}\dsa.exe"; Tasks: desktopicon
 
 [Run]
-Filename: "{app}\dsa.exe"; Description: "DSA 실행"; Flags: nowait postinstall skipifsilent
+Filename: "{app}\dsa.exe"; Parameters: "setup"; Description: "설정 마법사 실행"; Flags: nowait postinstall skipifsilent
